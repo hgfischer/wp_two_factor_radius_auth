@@ -94,7 +94,7 @@ class TwoFactorRadiusAuth
 	 */
 	function filterPluginActions($links)
 	{
-		$settings_link = '<a href="options-general.php?page=radius-auth">' . __( 'Settings' ) . '</a>';
+		$settings_link = '<a href="options-general.php?page=two-factor-radius">' . __( 'Settings' ) . '</a>';
 		array_unshift($links, $settings_link);
 		return $links;
 	}
