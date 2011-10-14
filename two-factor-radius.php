@@ -39,6 +39,7 @@ class TwoFactorRadiusAuth
 			$opts['s2_port'] = 1812;
 			$opts['s2_secr'] = '';
 			$opts['pwd_otp_sep'] = '~';
+			$opts['skip_users'] = array('admin');
 			update_option('radius_auth_option', $opts);
 		}
 		return $opts;
@@ -63,6 +64,18 @@ class TwoFactorRadiusAuth
 			$opts['s2_port'] = stripslashes($_POST['s2_port']);
 			$opts['s2_secr'] = stripslashes($_POST['s2_secr']);
 			$opts['pwd_otp_sep'] = stripslashes($_POST['pwd_otp_sep']);
+			$opts['skip_users'] = explode(',', stripslashes($_POST['skip_users']));
+
+			$tmp = array();
+			foreach ($opts['skip_users'] as $val)
+			{
+				$val = trim($val);
+				if (strlen($val) > 0)
+					$tmp[] = $val;
+			}
+
+			$opts['skip_users'] = $tmp;
+			sort($opts['skip_users']);
 			update_option('radius_auth_options', $opts);
 		}
 		else
@@ -211,6 +224,16 @@ class TwoFactorRadiusAuth
 					</span>
 				</td>
 			</tr>
+			<tr valign="top">
+				<th scope="row"> <label for="max_tries"><?php _e('Skip users') ?></label> </th>
+				<td>
+					<input type="text" name="skip_users" id="skip_users" size="40"
+						value="<?php echo join(',', $opts['skip_users']) ?>" />
+					<span class="description">
+					<?php _e('Comma-separated list of users that we should skip RADIUS auth') ?>.
+					</span>
+				</td>
+			</tr>
 			</tbody>
 			</table>
 
@@ -239,12 +262,21 @@ class TwoFactorRadiusAuth
 	 * This is the main authentication function of the plugin. Given both the username and password it will
 	 * make use of the options set to authenticate against the configured RADIUS servers.
 	 */
-	function checkLogin($username, $password)
+	function checkLogin(&$username, &$password)
 	{
 		if (empty($username))
 			return;
 
+		if (username_exists($username) === null)
+			throw new Exception(__('Unknown user'));
+
 		$opts = TwoFactorRadiusAuth::getOptions();
+
+		if (@array_search($username, $opts['skip_users']) !== false) 
+		{
+			error_log("Plugin setup to skip RADIUS auth for user '$username'");
+			return;
+		}
 
 		$OTP = trim($_POST['otp']);
 		if (!empty($OTP))
@@ -252,8 +284,6 @@ class TwoFactorRadiusAuth
 
 		try
 		{
-			$authenticated = false;
-
 			if (!TwoFactorRadiusAuth::isConfigured())
 				throw new Exception('Missing server settings');
 
@@ -304,41 +334,50 @@ class TwoFactorRadiusAuth
 				throw new Exception(radius_strerror($rad));
 
 			$res = radius_send_request($rad);
+			$reply_message = '';
 			if (!$res)
 			{
 				error_log(radius_strerror($rad));
 				error_log('ERROR: Looks like there none of configured RADIUS servers is online');
 			}
-
-			switch($res)
+			else
 			{
-				case RADIUS_ACCESS_ACCEPT:
-					$authenticated = true;
-					break;
-				case RADIUS_ACCESS_REJECT:
-				default:
-					$authenticated = false;
-					break;
+				while ($rattr = radius_get_attr($rad))
+				{
+					error_log($rattr['data']);
+					if ($rattr['attr'] == 18)
+						$reply_message = $rattr['data'];
+				}
 			}
 
-			if ($authenticated)
+			switch ($res)
 			{
-				if ($id = username_exists($username))
-				{
+				case RADIUS_ACCESS_ACCEPT:
+					$id = username_exists($username);
 					$userarray['ID'] = $id;
 					$userarray['user_login'] = $username;
 					$userarray['user_pass'] = $password;
 					wp_update_user($userarray);
-				}
-
-				if (username_exists($username) === null)
-					throw new Exception(__('Unknown user'));
+					break;
+				case RADIUS_ACCESS_REJECT:
+				default:
+					switch ($reply_message)
+					{
+						case 'INVALID OTP':
+							throw new Exception(__('Invalid OTP'));
+						case 'LDAP USER NOT FOUND':
+							throw new Exception(__('Unknown user'));
+						default:
+							throw new Exception(__('Wrong password and/or OTP'));
+					}
 			}
 		}
 		catch (Exception $exp)
 		{
 			global $error_msg;
 			$error_msg = '<p><strong>' . $exp->getMessage() . '!</strong></p><br/>';
+			error_log(sprintf("%s = %s", $username, $exp->getMessage()));
+			$password = '@#@#$@#$!$%ASDFASDFASDF!@#$!@#';
 			return;
 		}
 	}
