@@ -258,128 +258,109 @@ class TwoFactorRadiusAuth
 				);
 	}
 
+	function wp_error($tag, $msg)
+	{
+		return new WP_Error($tag, __('<strong>ERROR</strong>') . ": $msg");
+	}
+
 	/**
 	 * This is the main authentication function of the plugin. Given both the username and password it will
 	 * make use of the options set to authenticate against the configured RADIUS servers.
 	 */
-	function checkLogin(&$username, &$password)
+	function checkLogin($userdata, $password)
 	{
-		if (empty($username))
-			return;
+		if (!function_exists('radius_auth_open'))
+			return self::wp_error('missing_php_radius', 'Missing php-radius');
 
-		if (username_exists($username) === null)
-			throw new Exception(__('Unknown user'));
-
+		$username = $userdata->user_login;
 		$opts = TwoFactorRadiusAuth::getOptions();
 
 		if (@array_search($username, $opts['skip_users']) !== false) 
 		{
 			error_log("Plugin setup to skip RADIUS auth for user '$username'");
-			return;
+			return $userdata;
 		}
 
 		$OTP = trim($_POST['otp']);
 		if (!empty($OTP))
 			$password = $password . $opts['pwd_otp_sep'] . $OTP;
 
+		if (!TwoFactorRadiusAuth::isConfigured())
+			return self::wp_error('missing_plugin_settings', 
+				__('Missing auth server settings'));
+
+		$reply_message = '';
+
 		try
 		{
-			if (!TwoFactorRadiusAuth::isConfigured())
-				throw new Exception('Missing server settings');
-
-			if (!function_exists('radius_auth_open'))
-				throw new Exception('Missing php-radius');
-
 			$rad = radius_auth_open();
 			if (!radius_add_server($rad, $opts['s1_host'], $opts['s1_port'], 
-					$opts['s1_secr'], $opts['timeout'], $opts['max_tries']))
+				$opts['s1_secr'], $opts['timeout'], $opts['max_tries']))
 				throw new Exception(radius_strerror($rad));
-
-			if (!empty($opts['s2_host']) && !empty($opts['s2_port']) && !empty($opts['s2_secr']))
+			if (!empty($opts['s2_host']) && !empty($opts['s2_port']) && 
+				!empty($opts['s2_secr']))
 				if (!radius_add_server($rad, $opts['s2_host'], $opts['s2_port'], 
-						$opts['s2_secr'], $opts['timeout'], $opts['max_tries']))
+					$opts['s2_secr'], $opts['timeout'], $opts['max_tries']))
 					throw new Exception(radius_strerror($rad));
-
 			if (!radius_create_request($rad, RADIUS_ACCESS_REQUEST))
 				throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_string($rad, RADIUS_NAS_IDENTIFIER, '1'))
 				throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_int($rad, RADIUS_SERVICE_TYPE, RADIUS_FRAMED))
 				throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_int($rad, RADIUS_FRAMED_PROTOCOL, RADIUS_PPP))
 				throw new Exception(radius_strerror($rad));
-
 			$station = isset($REMOTE_HOST) ? $REMOTE_HOST : '127.0.0.1';
 			if (!radius_put_string($rad, RADIUS_CALLING_STATION_ID, $station) == -1)
 				throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_string($rad, RADIUS_USER_NAME, $username))
 				throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_string($rad, RADIUS_USER_PASSWORD, $password))
 				throw new Exception(radius_strerror($rad));
-
-			# sending OTP as a separate attribute did not worked. meh
-			#define('RADIUS_ONE_TIME_PASSWORD', 3000);
-			#if (!radius_put_string($rad, RADIUS_ONE_TIME_PASSWORD, $OTP))
-			#	throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_int($rad, RADIUS_SERVICE_TYPE, RADIUS_FRAMED))
 				throw new Exception(radius_strerror($rad));
-
 			if (!radius_put_int($rad, RADIUS_FRAMED_PROTOCOL, RADIUS_PPP))
 				throw new Exception(radius_strerror($rad));
-
 			$res = radius_send_request($rad);
-			$reply_message = '';
 			if (!$res)
+				throw new Exception(radius_strerror($rad));
+			while ($rattr = radius_get_attr($rad))
 			{
-				error_log(radius_strerror($rad));
-				error_log('ERROR: Looks like there none of configured RADIUS servers is online');
-			}
-			else
-			{
-				while ($rattr = radius_get_attr($rad))
+				if ($rattr['attr'] == 18)
 				{
-					error_log($rattr['data']);
-					if ($rattr['attr'] == 18)
-						$reply_message = $rattr['data'];
-				}
-			}
-
-			switch ($res)
-			{
-				case RADIUS_ACCESS_ACCEPT:
-					$id = username_exists($username);
-					$userarray['ID'] = $id;
-					$userarray['user_login'] = $username;
-					$userarray['user_pass'] = $password;
-					wp_update_user($userarray);
+					$reply_message = $rattr['data'];
 					break;
-				case RADIUS_ACCESS_REJECT:
-				default:
-					switch ($reply_message)
-					{
-						case 'INVALID OTP':
-							throw new Exception(__('Invalid OTP'));
-						case 'LDAP USER NOT FOUND':
-							throw new Exception(__('Unknown user'));
-						default:
-							throw new Exception(__('Wrong password and/or OTP'));
-					}
+				}
 			}
 		}
 		catch (Exception $exp)
 		{
-			global $error_msg;
-			$error_msg = '<p><strong>' . $exp->getMessage() . '!</strong></p><br/>';
-			error_log(sprintf("%s = %s", $username, $exp->getMessage()));
-			$password = '@#@#$@#$!$%ASDFASDFASDF!@#$!@#';
-			return;
+			return self::wp_error('radius_error', $exp->getMessage());
 		}
+
+		switch ($res)
+		{
+			case RADIUS_ACCESS_ACCEPT:
+				$userdata->user_pass = wp_hash_password($password);
+				return $userdata;
+				break;
+			case RADIUS_ACCESS_REJECT:
+				switch ($reply_message)
+				{
+					case 'INVALID OTP':
+						return self::wp_error('denied', __('Invalid OTP'));
+					case 'LDAP USER NOT FOUND':
+						return self::wp_error('denied', __('Unknown user'));
+					default:
+						return self::wp_error('denied', 
+							__('Wrong password and/or OTP'));
+				}
+				break;
+			default:
+				return self::wp_error('denied', __('Unknown error'));
+		}
+
+		return $userdata;
 	}
 
 	/**
@@ -434,7 +415,7 @@ if (is_admin())
 add_filter('login_errors', array('TwoFactorRadiusAuth', 'loginErrors'));
 
 if (TwoFactorRadiusAuth::isConfigured()) {
-	add_action('wp_authenticate', array('TwoFactorRadiusAuth', 'checkLogin'), 1, 2);
+	add_filter('wp_authenticate_user', array('TwoFactorRadiusAuth', 'checkLogin'), 1, 2);
 	add_filter('login_form', array('TwoFactorRadiusAuth', 'loginForm'));
 } else {
 	add_filter('login_form', array('TwoFactorRadiusAuth', 'loginFormMissingConf'));
