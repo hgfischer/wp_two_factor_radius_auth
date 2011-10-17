@@ -282,8 +282,9 @@ class TwoFactorRadiusAuth
 		}
 
 		$OTP = trim($_POST['otp']);
+		$radiuspass = $password;
 		if (!empty($OTP))
-			$password = $password . $opts['pwd_otp_sep'] . $OTP;
+			$radiuspass = $password . $opts['pwd_otp_sep'] . $OTP;
 
 		if (!TwoFactorRadiusAuth::isConfigured())
 			return self::wp_error('missing_plugin_settings', 
@@ -315,7 +316,7 @@ class TwoFactorRadiusAuth
 				throw new Exception(radius_strerror($rad));
 			if (!radius_put_string($rad, RADIUS_USER_NAME, $username))
 				throw new Exception(radius_strerror($rad));
-			if (!radius_put_string($rad, RADIUS_USER_PASSWORD, $password))
+			if (!radius_put_string($rad, RADIUS_USER_PASSWORD, $radiuspass))
 				throw new Exception(radius_strerror($rad));
 			if (!radius_put_int($rad, RADIUS_SERVICE_TYPE, RADIUS_FRAMED))
 				throw new Exception(radius_strerror($rad));
@@ -353,7 +354,7 @@ class TwoFactorRadiusAuth
 						return self::wp_error('denied', __('Unknown user'));
 					default:
 						return self::wp_error('denied', 
-							__('Wrong password and/or OTP'));
+							__('Wrong password/OTP'));
 				}
 				break;
 			default:
