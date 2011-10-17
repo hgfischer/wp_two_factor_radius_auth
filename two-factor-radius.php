@@ -64,7 +64,8 @@ class TwoFactorRadiusAuth
 			$opts['s2_port'] = stripslashes($_POST['s2_port']);
 			$opts['s2_secr'] = stripslashes($_POST['s2_secr']);
 			$opts['pwd_otp_sep'] = stripslashes($_POST['pwd_otp_sep']);
-			$opts['skip_users'] = explode(',', stripslashes($_POST['skip_users']));
+			$opts['skip_users'] = explode(',', 
+				stripslashes($_POST['skip_users']));
 
 			$tmp = array();
 			foreach ($opts['skip_users'] as $val)
@@ -107,8 +108,9 @@ class TwoFactorRadiusAuth
 	 */
 	function filterPluginActions($links)
 	{
-		$settings_link = '<a href="options-general.php?page=two-factor-radius">' . __( 'Settings' ) . '</a>';
-		array_unshift($links, $settings_link);
+		$link = '<a href="options-general.php?page=two-factor-radius">' . 
+			__('Settings') . '</a>';
+		array_unshift($links, $link);
 		return $links;
 	}
 
@@ -129,7 +131,9 @@ class TwoFactorRadiusAuth
 			<table class="form-table">
 			<tbody>
 			<tr valign="top">
-				<th scope="row"> <label for="max_tries"><?php _e('Max tries') ?></label> </th>
+				<th scope="row">
+					<label for="max_tries"><?php _e('Max tries') ?></label>
+				</th>
 				<td>
 					<input type="text" name="max_tries" id="max_tries" 
 						value="<?php echo $opts['max_tries'] ?>" />
@@ -264,27 +268,57 @@ class TwoFactorRadiusAuth
 	}
 
 	/**
-	 * This is the main authentication function of the plugin. Given both the username and password it will
-	 * make use of the options set to authenticate against the configured RADIUS servers.
+	 * This is the main authentication function of the plugin. Given both the 
+	 * username and password it will make use of the options set to authenticate
+	 * against the configured RADIUS servers.
 	 */
-	function checkLogin($userdata, $password)
+	function checkLogin($user, $username, $password)
 	{
-		if (!function_exists('radius_auth_open'))
-			return self::wp_error('missing_php_radius', 'Missing php-radius');
+		if (is_a($user, 'WP_User'))
+			return $user;
+		if (empty($username))
+			return self::wp_error('empty_username', 
+				__('The username field is empty.'));
+		if (empty($password))
+			return self::wp_error('empty_password', 
+				__('The password field is empty.'));
 
-		$username = $userdata->user_login;
 		$opts = TwoFactorRadiusAuth::getOptions();
-
+		// skip radius for user
 		if (@array_search($username, $opts['skip_users']) !== false) 
+			return;
+
+		remove_filter('authenticate', 'wp_authenticate_username_password', 
+			20, 3);
+
+		$userdata = get_user_by('login', $username);
+		if (!$userdata)
+			return self::wp_error('invalid_username', __('Invalid username.'));
+
+		if (is_multisite())
 		{
-			error_log("Plugin setup to skip RADIUS auth for user '$username'");
-			return $userdata;
+			// Is user marked as spam?
+			if (1 == $userdata->spam)
+				return self::wp_error('invalid_username', 
+					__('Your account has been marked as a spammer.'));
+
+			// Is a user's blog marked as spam?
+			if (!is_super_admin($userdata->ID) && isset($userdata->primary_blog))
+			{
+				$details = get_blog_details($userdata->primary_blog);
+				if (is_object($details) && $details->spam == 1)
+					return self::wp_error('blog_suspended', 
+						__('Site Suspended.'));
+			}
 		}
 
 		$OTP = trim($_POST['otp']);
 		$radiuspass = $password;
 		if (!empty($OTP))
 			$radiuspass = $password . $opts['pwd_otp_sep'] . $OTP;
+
+		if (!function_exists('radius_auth_open'))
+			return self::wp_error('missing_php_radius', 'Missing php-radius');
 
 		if (!TwoFactorRadiusAuth::isConfigured())
 			return self::wp_error('missing_plugin_settings', 
@@ -343,25 +377,23 @@ class TwoFactorRadiusAuth
 		{
 			case RADIUS_ACCESS_ACCEPT:
 				$userdata->user_pass = wp_hash_password($password);
-				return $userdata;
+				return new WP_User($userdata->ID);
 				break;
 			case RADIUS_ACCESS_REJECT:
 				switch ($reply_message)
 				{
-					case 'INVALID OTP':
-						return self::wp_error('denied', __('Invalid OTP'));
 					case 'LDAP USER NOT FOUND':
-						return self::wp_error('denied', __('Unknown user'));
+						return self::wp_error('invalid_username', 
+							__('Unknown user'));
+					case 'INVALID OTP':
 					default:
-						return self::wp_error('denied', 
+						return self::wp_error('incorrect_password', 
 							__('Wrong password/OTP'));
 				}
 				break;
 			default:
 				return self::wp_error('denied', __('Unknown error'));
 		}
-
-		return $userdata;
 	}
 
 	/**
@@ -416,7 +448,7 @@ if (is_admin())
 add_filter('login_errors', array('TwoFactorRadiusAuth', 'loginErrors'));
 
 if (TwoFactorRadiusAuth::isConfigured()) {
-	add_filter('wp_authenticate_user', array('TwoFactorRadiusAuth', 'checkLogin'), 1, 2);
+	add_filter('authenticate', array('TwoFactorRadiusAuth', 'checkLogin'), 1, 3);
 	add_filter('login_form', array('TwoFactorRadiusAuth', 'loginForm'));
 } else {
 	add_filter('login_form', array('TwoFactorRadiusAuth', 'loginFormMissingConf'));
