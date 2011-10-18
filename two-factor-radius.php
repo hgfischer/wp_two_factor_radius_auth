@@ -40,6 +40,7 @@ class TwoFactorRadiusAuth
 			$opts['s2_secr'] = '';
 			$opts['pwd_otp_sep'] = '~';
 			$opts['skip_users'] = array('admin');
+			$opts['use_wp_auth'] = 'off';
 			update_option('radius_auth_option', $opts);
 		}
 		return $opts;
@@ -64,6 +65,7 @@ class TwoFactorRadiusAuth
 			$opts['s2_port'] = stripslashes($_POST['s2_port']);
 			$opts['s2_secr'] = stripslashes($_POST['s2_secr']);
 			$opts['pwd_otp_sep'] = stripslashes($_POST['pwd_otp_sep']);
+			$opts['use_wp_auth'] = !empty($_POST['use_wp_auth']) ? "on" : "off";
 			$opts['skip_users'] = explode(',', 
 				stripslashes($_POST['skip_users']));
 
@@ -238,6 +240,15 @@ class TwoFactorRadiusAuth
 					</span>
 				</td>
 			</tr>
+			<tr valign="top">
+				<th scope="row"> <label for="max_tries"><?php _e('Use WordPress auth') ?></label> </th>
+				<td>
+					<input type="checkbox" name="use_wp_auth" id="use_wp_auth" <?php checked( $opts['use_wp_auth'], 'on' ) ?> />
+					<span class="description">
+					<?php _e('Check this box to use original WP auth if no user is found in RADIUS auth.') ?>.
+					</span>
+				</td>
+			</tr>
 			</tbody>
 			</table>
 
@@ -383,8 +394,17 @@ class TwoFactorRadiusAuth
 				switch ($reply_message)
 				{
 					case 'LDAP USER NOT FOUND':
-						return self::wp_error('invalid_username', 
-							__('Unknown user'));
+						if( $opts['use_wp_auth'] == 'on' )
+						{
+							add_filter('authenticate', 
+								'wp_authenticate_username_password', 10, 3);
+							return null;
+						}
+						else
+						{
+							return self::wp_error('invalid_username', 
+								__('Unknown user'));
+						}
 					case 'INVALID OTP':
 					default:
 						return self::wp_error('incorrect_password', 
