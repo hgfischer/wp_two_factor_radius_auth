@@ -245,7 +245,7 @@ class TwoFactorRadiusAuth
 				<td>
 					<input type="checkbox" name="use_wp_auth" id="use_wp_auth" <?php checked( $opts['use_wp_auth'], 'on' ) ?> />
 					<span class="description">
-					<?php _e('Check this box to use original WP auth if no user is found in RADIUS auth.') ?>.
+					<?php _e('Check this box to use original WP auth if the username is not found in RADIUS auth') ?>.
 					</span>
 				</td>
 			</tr>
