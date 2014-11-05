@@ -49,7 +49,7 @@ class TwoFactorRadiusAuth
 	/**
 	 * This function will update the available options for the the class.
 	 * All parameters passes through from the $_POST array are cleansed before
-	 * being assigned to the relevant options. 
+	 * being assigned to the relevant options.
 	 */
 	function updateOptions()
 	{
@@ -66,7 +66,7 @@ class TwoFactorRadiusAuth
 			$opts['s2_secr'] = stripslashes($_POST['s2_secr']);
 			$opts['pwd_otp_sep'] = stripslashes($_POST['pwd_otp_sep']);
 			$opts['use_wp_auth'] = !empty($_POST['use_wp_auth']) ? "on" : "off";
-			$opts['skip_users'] = explode(',', 
+			$opts['skip_users'] = explode(',',
 				stripslashes($_POST['skip_users']));
 
 			$tmp = array();
@@ -88,14 +88,14 @@ class TwoFactorRadiusAuth
 	}
 
 	/**
-	 * Creates the default menu option once the plugin has been activated. 
+	 * Creates the default menu option once the plugin has been activated.
 	 */
 	function addMenu()
 	{
 		# add the menu to the main options section
 		add_options_page(
 			__('RADIUS Authentication'),
-			__('RADIUS Authentication'), 
+			__('RADIUS Authentication'),
 			'manage_options', basename(__FILE__),
 			array('TwoFactorRadiusAuth', 'displayOptions')
 		);
@@ -106,11 +106,11 @@ class TwoFactorRadiusAuth
 	}
 
 	/**
-	 * Creates the settings link in Plugins once activated. 
+	 * Creates the settings link in Plugins once activated.
 	 */
 	function filterPluginActions($links)
 	{
-		$link = '<a href="options-general.php?page=two-factor-radius">' . 
+		$link = '<a href="options-general.php?page=two-factor-radius">' .
 			__('Settings') . '</a>';
 		array_unshift($links, $link);
 		return $links;
@@ -137,7 +137,7 @@ class TwoFactorRadiusAuth
 					<label for="max_tries"><?php _e('Max tries') ?></label>
 				</th>
 				<td>
-					<input type="text" name="max_tries" id="max_tries" 
+					<input type="text" name="max_tries" id="max_tries"
 						value="<?php echo $opts['max_tries'] ?>" />
 					<span class="description">
 					<?php _e('How many tries I must try to authenticate against each RADIUS server') ?>.
@@ -147,7 +147,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="timeout"><?php _e('Timeout') ?></label> </th>
 				<td>
-					<input type="text" name="timeout" id="timeout" 
+					<input type="text" name="timeout" id="timeout"
 						value="<?php echo $opts['timeout'] ?>" />
 						<span class="description">
 						<?php _e('Timeout in seconds to wait for RADIUS answer') ?>.
@@ -163,7 +163,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="s1_host"><?php _e('Hostname') ?></label> </th>
 				<td>
-					<input type="text" name="s1_host" id="s1_host" 
+					<input type="text" name="s1_host" id="s1_host"
 						value="<?php echo $opts['s1_host'] ?>" />
 					<span class="description"><?php _e('Server #1 hostname') ?></span>
 				</td>
@@ -171,7 +171,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="s1_port"><?php _e('Port') ?></label> </th>
 				<td>
-					<input type="text" name="s1_port" id="s1_port" 
+					<input type="text" name="s1_port" id="s1_port"
 						value="<?php echo $opts['s1_port'] ?>" />
 					<span class="description"><?php _e('Server #1 port') ?></span>
 				</td>
@@ -179,7 +179,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="s1_secr"><?php _e('Secret') ?></label> </th>
 				<td>
-					<input type="password" name="s1_secr" id="s1_secr" 
+					<input type="password" name="s1_secr" id="s1_secr"
 						value="<?php echo $opts['s1_secr'] ?>" />
 					<span class="description"><?php _e('Server #1 secret') ?></span>
 				</td>
@@ -193,7 +193,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="s2_host"><?php _e('Hostname') ?></label> </th>
 				<td>
-					<input type="text" name="s2_host" id="s2_host" 
+					<input type="text" name="s2_host" id="s2_host"
 						value="<?php echo $opts['s2_host'] ?>" />
 					<span class="description"><?php _e('Server #2 hostname') ?></span>
 				</td>
@@ -201,7 +201,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="s2_port"><?php _e('Port') ?></label> </th>
 				<td>
-					<input type="text" name="s2_port" id="s2_port" 
+					<input type="text" name="s2_port" id="s2_port"
 						value="<?php echo $opts['s2_port'] ?>" />
 					<span class="description"><?php _e('Server #2 port') ?></span>
 				</td>
@@ -209,7 +209,7 @@ class TwoFactorRadiusAuth
 			<tr valign="top">
 				<th scope="row"> <label for="s2_secr"><?php _e('Secret') ?></label> </th>
 				<td>
-					<input type="password" name="s2_secr" id="s2_secr" 
+					<input type="password" name="s2_secr" id="s2_secr"
 						value="<?php echo $opts['s2_secr'] ?>" />
 					<span class="description"><?php _e('Server #2 secret') ?></span>
 				</td>
@@ -253,7 +253,7 @@ class TwoFactorRadiusAuth
 			</table>
 
 			<p class="submit">
-				<input type="submit" name="save_radius_auth_settings" 
+				<input type="submit" name="save_radius_auth_settings"
 					id="sumbit" value="<?php _e('Save Changes') ?>" />
 			</p>
 			</form>
@@ -267,8 +267,8 @@ class TwoFactorRadiusAuth
 		return (
 					!empty($opts['max_tries']) &&
 					!empty($opts['timeout']) &&
-					!empty($opts['s1_host']) && 
-					!empty($opts['s1_port']) && 
+					!empty($opts['s1_host']) &&
+					!empty($opts['s1_port']) &&
 					!empty($opts['s1_secr'])
 				);
 	}
@@ -279,7 +279,7 @@ class TwoFactorRadiusAuth
 	}
 
 	/**
-	 * This is the main authentication function of the plugin. Given both the 
+	 * This is the main authentication function of the plugin. Given both the
 	 * username and password it will make use of the options set to authenticate
 	 * against the configured RADIUS servers.
 	 */
@@ -288,18 +288,18 @@ class TwoFactorRadiusAuth
 		if (is_a($user, 'WP_User'))
 			return $user;
 		if (empty($username))
-			return self::wp_error('empty_username', 
+			return self::wp_error('empty_username',
 				__('The username field is empty.'));
 		if (empty($password))
-			return self::wp_error('empty_password', 
+			return self::wp_error('empty_password',
 				__('The password field is empty.'));
 
 		$opts = TwoFactorRadiusAuth::getOptions();
 		// skip radius for user
-		if (@array_search($username, $opts['skip_users']) !== false) 
+		if (@array_search($username, $opts['skip_users']) !== false)
 			return;
 
-		remove_filter('authenticate', 'wp_authenticate_username_password', 
+		remove_filter('authenticate', 'wp_authenticate_username_password',
 			20, 3);
 
 		$userdata = get_user_by('login', $username);
@@ -310,7 +310,7 @@ class TwoFactorRadiusAuth
 		{
 			// Is user marked as spam?
 			if (1 == $userdata->spam)
-				return self::wp_error('invalid_username', 
+				return self::wp_error('invalid_username',
 					__('Your account has been marked as a spammer.'));
 
 			// Is a user's blog marked as spam?
@@ -318,7 +318,7 @@ class TwoFactorRadiusAuth
 			{
 				$details = get_blog_details($userdata->primary_blog);
 				if (is_object($details) && $details->spam == 1)
-					return self::wp_error('blog_suspended', 
+					return self::wp_error('blog_suspended',
 						__('Site Suspended.'));
 			}
 		}
@@ -332,7 +332,7 @@ class TwoFactorRadiusAuth
 			return self::wp_error('missing_php_radius', 'Missing php-radius');
 
 		if (!TwoFactorRadiusAuth::isConfigured())
-			return self::wp_error('missing_plugin_settings', 
+			return self::wp_error('missing_plugin_settings',
 				__('Missing auth server settings'));
 
 		$reply_message = '';
@@ -340,12 +340,12 @@ class TwoFactorRadiusAuth
 		try
 		{
 			$rad = radius_auth_open();
-			if (!radius_add_server($rad, $opts['s1_host'], $opts['s1_port'], 
+			if (!radius_add_server($rad, $opts['s1_host'], $opts['s1_port'],
 				$opts['s1_secr'], $opts['timeout'], $opts['max_tries']))
 				throw new Exception(radius_strerror($rad));
-			if (!empty($opts['s2_host']) && !empty($opts['s2_port']) && 
+			if (!empty($opts['s2_host']) && !empty($opts['s2_port']) &&
 				!empty($opts['s2_secr']))
-				if (!radius_add_server($rad, $opts['s2_host'], $opts['s2_port'], 
+				if (!radius_add_server($rad, $opts['s2_host'], $opts['s2_port'],
 					$opts['s2_secr'], $opts['timeout'], $opts['max_tries']))
 					throw new Exception(radius_strerror($rad));
 			if (!radius_create_request($rad, RADIUS_ACCESS_REQUEST))
@@ -396,18 +396,18 @@ class TwoFactorRadiusAuth
 					case 'LDAP USER NOT FOUND':
 						if( $opts['use_wp_auth'] == 'on' )
 						{
-							add_filter('authenticate', 
+							add_filter('authenticate',
 								'wp_authenticate_username_password', 10, 3);
 							return null;
 						}
 						else
 						{
-							return self::wp_error('invalid_username', 
+							return self::wp_error('invalid_username',
 								__('Unknown user'));
 						}
 					case 'INVALID OTP':
 					default:
-						return self::wp_error('incorrect_password', 
+						return self::wp_error('incorrect_password',
 							__('Wrong password/OTP'));
 				}
 				break;
@@ -424,7 +424,7 @@ class TwoFactorRadiusAuth
 		?><p>
 		<label>
 			<?php _e('OTP') ?><br />
-			<input type="password" name="otp" id="otp" class="input" 
+			<input type="password" name="otp" id="otp" class="input"
 				value="" size="20" tabindex="25" maxlength="6" />
 		</label>
 		</p>
